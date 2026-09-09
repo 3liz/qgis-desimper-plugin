@@ -131,7 +131,7 @@ class CreateDatabaseLocalInterface(BaseProcessingAlgorithm):
         # Write the file out again
         project_file = self.parameterAsString(parameters, self.PROJECT_FILE, context)
         if not createAdministrationProjectFromTemplate(connection_name, project_file):
-            raise QgsProcessingException(f"Connection {connection_name} not found")
+            raise QgsProcessingException(tr(f"Connection {connection_name} not found"))
 
         # Add contextes data if desired
         if self.parameterAsBool(parameters, self.ADD_CONTEXTS_LAYERS, context):

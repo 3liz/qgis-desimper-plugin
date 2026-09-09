@@ -132,7 +132,7 @@ class CreateDatabaseStructure(BaseDatabaseAlgorithm):
         metadata = QgsProviderRegistry.instance().providerMetadata("postgres")
         connection = metadata.findConnection(connection_name)
         if not connection:
-            raise QgsProcessingException(f"La connexion {connection_name} n'existe pas.")
+            raise QgsProcessingException(tr(f"La connexion {connection_name} n'existe pas."))
 
         pg_conn = connect(QgsDataSourceUri(connection.uri()).connectionInfo())
 
