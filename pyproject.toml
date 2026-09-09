@@ -3,7 +3,7 @@
 # should be the same as the plugin's metatada.txt
 [project]
 name = "desimper"
-version = "0.2.0"
+version = "0.3.0"
 description = "This plugin manage depaving project"
 authors = [
     { name = "3Liz", email = "info@3liz.com" }
