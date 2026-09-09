@@ -19,6 +19,10 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- FUNCTION aa_before_insert_or_update()
+COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
+
+
 -- FUNCTION fill_contextes_projets(id_projet integer)
 COMMENT ON FUNCTION desimper.fill_contextes_projets(id_projet integer) IS 'Ajoute à la table contextes_projets les contextes qui intersectent le projet';
 
@@ -32,6 +36,12 @@ COMMENT ON FUNCTION desimper.is_given_type(s text, t text) IS ' Teste si la vale
 Retourne vrai s''il est possible de caster la valeur dans le type donné attendu.
 Valeurs vides et NULL sont toujours considérées valides. 
 Si le type n''est pas supporté, la valeur est considérée invalide.';
+
+
+-- FUNCTION trg_after_projet_insert_or_update()
+COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
+Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
+Ne fait rien si la géométrie du projet n''a pas changé.';
 
 
 -- communes
@@ -251,7 +261,7 @@ COMMENT ON COLUMN desimper.projets.fk_pollution IS 'Usage susceptible de génér
 
 
 -- projets.fk_commune_principale
-COMMENT ON COLUMN desimper.projets.fk_commune_principale IS 'Commune principale sur laquelle se trouve le projet';
+COMMENT ON COLUMN desimper.projets.fk_commune_principale IS 'Commune principale sur laquelle se trouve le projet, déterminée automatiquement. NULL si indéterminée';
 
 
 -- projets.geom

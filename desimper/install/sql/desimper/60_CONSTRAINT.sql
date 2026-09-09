@@ -173,7 +173,7 @@ ALTER TABLE ONLY desimper.projets
 
 -- contextes_projets fk_id_projet
 ALTER TABLE ONLY desimper.contextes_projets
-    ADD CONSTRAINT fk_id_projet FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id);
+    ADD CONSTRAINT fk_id_projet FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id) ON DELETE CASCADE;
 
 
 -- projets fk_pollution

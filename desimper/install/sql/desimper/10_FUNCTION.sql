@@ -19,6 +19,70 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- aa_before_insert_or_update()
+CREATE FUNCTION desimper.aa_before_insert_or_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE newjsonb jsonb;
+BEGIN
+
+    -- Convert record to jsonb to be able to test if a field exists
+    newjsonb = to_jsonb(NEW);
+
+    -- CREE_LE / MODIFIE_LE
+    IF newjsonb ? 'cree_le' THEN
+        IF TG_OP = 'INSERT' THEN
+            NEW.cree_le = now()::timestamp(0) without time zone;
+        END IF;
+    END IF;
+
+    IF newjsonb ? 'modifie_le' THEN
+        NEW.modifie_le = now()::timestamp(0) without time zone;
+    END IF;
+
+    -- GEOM / COMMUNE PRINCIPALE / SURFACE
+    IF newjsonb ? 'geom' THEN
+        -- Do not modify the geometry if geom field has not been changed
+        IF TG_OP = 'INSERT' OR NOT (
+                ST_Equals(OLD.geom, NEW.geom)
+                OR
+                ST_Equals(NEW.geom, ST_ReducePrecision(NEW.geom, 0.05))
+            )
+        THEN
+            -- Reduce geometry precision
+            NEW.geom = ST_ReducePrecision(NEW.geom, 0.05);
+
+            -- Set commune principale
+            IF newjsonb ? 'fk_commune_principale' THEN
+                SELECT c.code_insee INTO NEW.fk_commune_principale
+                FROM desimper.communes AS c
+                WHERE ST_Intersects(c.geom, NEW.geom)
+                ORDER BY ST_Area(
+                    ST_CollectionExtract(
+                        ST_Intersection(ST_MakeValid(c.geom), ST_MakeValid(NEW.geom)),
+                        3
+                    )
+                ) DESC
+                LIMIT 1;
+            END IF;
+
+            -- Set surface
+            IF newjsonb ? 'surface_m' THEN
+                NEW.surface_m = ST_Area(NEW.geom);
+            END IF;
+
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+-- FUNCTION aa_before_insert_or_update()
+COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
+
+
 -- fill_contextes_projets(integer)
 CREATE FUNCTION desimper.fill_contextes_projets(id_projet integer) RETURNS json
     LANGUAGE plpgsql
@@ -338,6 +402,34 @@ COMMENT ON FUNCTION desimper.is_given_type(s text, t text) IS ' Teste si la vale
 Retourne vrai s''il est possible de caster la valeur dans le type donné attendu.
 Valeurs vides et NULL sont toujours considérées valides. 
 Si le type n''est pas supporté, la valeur est considérée invalide.';
+
+
+-- trg_after_projet_insert_or_update()
+CREATE FUNCTION desimper.trg_after_projet_insert_or_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    -- Do nothing if the geometry has not changed
+    IF TG_OP = 'INSERT' OR NOT ST_Equals(NEW.geom, OLD.geom) THEN
+        -- Fill the contextes_projets table
+        PERFORM desimper.fill_contextes_projets(NEW.id);
+
+        -- TO DO 
+        -- Check if surface are fitting in the new project geom... 
+
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$;
+
+
+-- FUNCTION trg_after_projet_insert_or_update()
+COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
+Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
+Ne fait rien si la géométrie du projet n''a pas changé.';
 
 
 --

@@ -1,10 +1,16 @@
 from qgis.core import (
+    QgsDataSourceUri,
     QgsProcessingException,
+    QgsProviderConnectionException,
     QgsProcessingOutputNumber,
     QgsProcessingOutputString,
+    QgsProcessingParameterBoolean,
     QgsProcessingParameterFileDestination,
     QgsProcessingParameterProviderConnection,
     QgsProject,
+    QgsProviderRegistry,
+    QgsVectorLayer,
+    QgsWkbTypes,
 )
 
 from ..plugin_tools.i18n import tr
@@ -20,6 +26,7 @@ from .tools import (
 class CreateDatabaseLocalInterface(BaseProcessingAlgorithm):
     CONNECTION_NAME = "CONNECTION_NAME"
     PROJECT_FILE = "PROJECT_FILE"
+    ADD_CONTEXTS_LAYERS = "ADD_CONTEXTS_LAYERS"
 
     OUTPUT_STATUS = "OUTPUT_STATUS"
     OUTPUT_STRING = "OUTPUT_STRING"
@@ -79,6 +86,21 @@ class CreateDatabaseLocalInterface(BaseProcessingAlgorithm):
             )
         )
 
+        # Add existing contexts layers
+        param = QgsProcessingParameterBoolean(
+            self.ADD_CONTEXTS_LAYERS,
+            tr(
+                "Automatically add layers for existing contexts in the database. "
+            ),
+            defaultValue=False,
+        )
+        param.setHelp(
+            tr(
+                "All the contexts in the database will be added as layers in a group in the QGIS project. "
+            )
+        )
+        self.addParameter(param)
+
         # OUTPUTS
         # Add output for status (integer)
         self.addOutput(QgsProcessingOutputNumber(self.OUTPUT_STATUS, tr("Output status")))
@@ -111,9 +133,77 @@ class CreateDatabaseLocalInterface(BaseProcessingAlgorithm):
         if not createAdministrationProjectFromTemplate(connection_name, project_file):
             raise QgsProcessingException(f"Connection {connection_name} not found")
 
+        # Add contextes data if desired
+        if self.parameterAsBool(parameters, self.ADD_CONTEXTS_LAYERS, context):
+            admin_project = QgsProject()
+            if not admin_project.read(project_file):
+                raise QgsProcessingException(
+                    "{}: {}".format(tr("Could not read the created QGIS project"), project_file)
+                )
+            self._add_contexts_layers(admin_project, parameters, context, feedback)
+            admin_project.write()
+
         msg = tr("QGIS Administration project has been successfully created from database connection")
         msg += ": {}".format(connection_name)
         feedback.pushInfo(msg)
         status = 1
 
         return {self.OUTPUT_STATUS: status, self.OUTPUT_STRING: msg}
+
+    def _add_contexts_layers(self, project, parameters, context, feedback, group_name="Contextes"):
+        # Connection name
+        connection_name = self.parameterAsConnectionName(parameters, self.CONNECTION_NAME, context)
+        if not connection_name:
+            return False, tr("No valid database connection provided.")
+        metadata = QgsProviderRegistry.instance().providerMetadata("postgres")
+        connection = metadata.findConnection(connection_name)
+        if not connection:
+            return False, tr("Could not create a connection to the database with the given connection name.")
+
+        # Add group for contextes
+        root = project.layerTreeRoot()
+        group = root.findGroup(group_name)
+        if not group:
+            group = root.addGroup(group_name)
+
+        # Get list of contexts
+        query = ("""
+            SELECT nom_schema, nom_table
+            FROM desimper.liste_contextes
+        """)
+
+        try:
+            data = connection.executeSql(query)
+        except QgsProviderConnectionException as e:
+            msg = tr("* Failed to get list of contexts")
+            msg += f" ({e!s})"
+            feedback.pushInfo(msg)
+            return False, msg
+
+        # Add context layers
+        for row in data:
+            schema_name = row[0]
+            table_name = row[1]
+            try:
+                # Create layer
+                uri = QgsDataSourceUri(connection.uri())
+                uri.setDataSource(
+                    f"{schema_name}",
+                    f"{table_name}",
+                    "geom",
+                    aKeyColumn="id"
+                )
+                uri.setWkbType(QgsWkbTypes.MultiPolygon)
+                source = QgsVectorLayer(uri.uri(), f"{table_name}", "postgres")
+                assert source.isValid(), source.error().message()
+                # Add layer
+                project.addMapLayer(source, False)
+                group.addLayer(source)
+
+            except Exception as e:
+                msg = tr("* Failed to create layer for context")
+                msg += f" {schema_name}.{table_name} ({e!s})"
+                feedback.pushInfo(msg)
+                return False, msg
+
+        return True, ""

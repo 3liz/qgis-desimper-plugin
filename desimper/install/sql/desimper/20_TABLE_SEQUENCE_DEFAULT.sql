@@ -267,7 +267,7 @@ CREATE TABLE desimper.projets (
     fk_type_projet text DEFAULT 'CRE'::text NOT NULL,
     fk_destination text DEFAULT 'AUT'::text NOT NULL,
     fk_pollution text DEFAULT 'NON'::text NOT NULL,
-    fk_commune_principale text DEFAULT '13001'::text NOT NULL,
+    fk_commune_principale text,
     geom geometry(MultiPolygon,2154) NOT NULL,
     cree_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
     modifie_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,

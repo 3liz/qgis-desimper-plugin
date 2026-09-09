@@ -10,7 +10,7 @@ COMMENT ON COLUMN desimper.liste_contextes.login IS 'Login de l''utilisateur qui
 COMMENT ON COLUMN desimper.liste_contextes.cree_le IS 'Date de création du contexte';
 COMMENT ON COLUMN desimper.liste_contextes.modifie_le IS 'Date de la dernière modification du contexte';
 
--- Replace "cree_par", "modifie_par", "cree_le", "modifie_le" with "login" in contextes_projet table
+-- Replace "cree_par", "modifie_par", "cree_le", "modifie_le" with "login" in contextes_projets table
 ALTER TABLE desimper.contextes_projets
     DROP COLUMN IF EXISTS fk_cree_par,
     DROP COLUMN IF EXISTS fk_modifie_par,
@@ -368,3 +368,147 @@ BEGIN
 
 END;
 $_$;
+
+-- The main commune is computed by a trigger, drop the default value & the NOT NULL constraint.
+ALTER TABLE desimper.projets
+    ALTER COLUMN fk_commune_principale DROP DEFAULT,
+    ALTER COLUMN fk_commune_principale DROP NOT NULL
+;
+COMMENT ON COLUMN desimper.projets.fk_commune_principale IS 'Commune principale sur laquelle se trouve le projet, déterminée automatiquement. NULL si indéterminée';
+
+
+-- 
+CREATE OR REPLACE FUNCTION desimper.trg_after_projet_insert_or_update()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    -- Do nothing if the geometry has not changed
+    IF TG_OP = 'INSERT' OR NOT ST_Equals(NEW.geom, OLD.geom) THEN
+        -- Fill the contextes_projets table
+        PERFORM desimper.fill_contextes_projets(NEW.id);
+
+        -- TO DO 
+        -- Check if surface are fitting in the new project geom... 
+
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$;
+
+COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update()
+IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
+Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
+Ne fait rien si la géométrie du projet n''a pas changé.'
+;
+
+-- Update table contextes_projets on creation of a projet or change of its geometry.
+-- The project row must be written before its contexts can be inserted.
+DROP TRIGGER IF EXISTS update_contextes_projets ON desimper.projets;
+CREATE TRIGGER update_contextes_projets
+    AFTER INSERT OR UPDATE OF geom ON desimper.projets
+    FOR EACH ROW EXECUTE FUNCTION desimper.trg_after_projet_insert_or_update()
+;
+
+-- aa_before_insert_or_update()
+CREATE OR REPLACE FUNCTION desimper.aa_before_insert_or_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE newjsonb jsonb;
+BEGIN
+
+    -- Convert record to jsonb to be able to test if a field exists
+    newjsonb = to_jsonb(NEW);
+
+    -- CREE_LE / MODIFIE_LE
+    IF newjsonb ? 'cree_le' THEN
+        IF TG_OP = 'INSERT' THEN
+            NEW.cree_le = now()::timestamp(0) without time zone;
+        END IF;
+    END IF;
+
+    IF newjsonb ? 'modifie_le' THEN
+        NEW.modifie_le = now()::timestamp(0) without time zone;
+    END IF;
+
+    -- GEOM / COMMUNE PRINCIPALE / SURFACE
+    IF newjsonb ? 'geom' THEN
+        -- Do not modify the geometry if geom field has not been changed
+        IF TG_OP = 'INSERT' OR NOT (
+                ST_Equals(OLD.geom, NEW.geom)
+                OR
+                ST_Equals(NEW.geom, ST_ReducePrecision(NEW.geom, 0.05))
+            )
+        THEN
+            -- Reduce geometry precision
+            NEW.geom = ST_ReducePrecision(NEW.geom, 0.05);
+
+            -- Set commune principale
+            IF newjsonb ? 'fk_commune_principale' THEN
+                SELECT c.code_insee INTO NEW.fk_commune_principale
+                FROM desimper.communes AS c
+                WHERE ST_Intersects(c.geom, NEW.geom)
+                ORDER BY ST_Area(
+                    ST_CollectionExtract(
+                        ST_Intersection(ST_MakeValid(c.geom), ST_MakeValid(NEW.geom)),
+                        3
+                    )
+                ) DESC
+                LIMIT 1;
+            END IF;
+
+            -- Set surface
+            IF newjsonb ? 'surface_m' THEN
+                NEW.surface_m = ST_Area(NEW.geom);
+            END IF;
+
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+-- COMMENT ON aa_before_insert_or_update()
+COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS
+'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
+
+DROP TRIGGER IF EXISTS trg_aa_before_insert_or_update ON desimper.projets;
+CREATE TRIGGER trg_aa_before_insert_or_update
+    BEFORE INSERT OR UPDATE ON desimper.projets
+    FOR EACH ROW EXECUTE FUNCTION desimper.aa_before_insert_or_update()
+;
+
+DROP TRIGGER IF EXISTS trg_aa_before_insert_or_update ON desimper.contextes_projets;
+CREATE TRIGGER trg_aa_before_insert_or_update
+    BEFORE INSERT OR UPDATE ON desimper.contextes_projets
+    FOR EACH ROW EXECUTE FUNCTION desimper.aa_before_insert_or_update()
+;
+
+DROP TRIGGER IF EXISTS trg_aa_before_insert_or_update ON desimper.liste_contextes;
+CREATE TRIGGER trg_aa_before_insert_or_update
+    BEFORE INSERT OR UPDATE ON desimper.liste_contextes
+    FOR EACH ROW EXECUTE FUNCTION desimper.aa_before_insert_or_update()
+;
+
+DROP TRIGGER IF EXISTS trg_aa_before_insert_or_update ON desimper.surfaces_projet;
+CREATE TRIGGER trg_aa_before_insert_or_update
+    BEFORE INSERT OR UPDATE ON desimper.surfaces_projet
+    FOR EACH ROW EXECUTE FUNCTION desimper.aa_before_insert_or_update()
+;
+
+DROP TRIGGER IF EXISTS trg_aa_before_insert_or_update ON desimper.variantes;
+CREATE TRIGGER trg_aa_before_insert_or_update
+    BEFORE INSERT OR UPDATE ON desimper.variantes
+    FOR EACH ROW EXECUTE FUNCTION desimper.aa_before_insert_or_update()
+;
+
+ALTER TABLE desimper.contextes_projets
+DROP CONSTRAINT IF EXISTS fk_id_projet,
+ADD CONSTRAINT fk_id_projet
+    FOREIGN KEY (fk_id_projet)
+    REFERENCES desimper.projets (id)
+    ON DELETE CASCADE;
