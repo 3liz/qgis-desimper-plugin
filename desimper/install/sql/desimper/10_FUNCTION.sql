@@ -83,6 +83,36 @@ $$;
 COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
 
 
+-- check_variantes_etat_initial()
+CREATE FUNCTION desimper.check_variantes_etat_initial() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        count_init_states int;
+BEGIN
+
+    IF NEW.etat_initial = false THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COUNT(fk_id_projet)
+    FROM desimper.variantes
+    WHERE fk_id_projet = NEW.fk_id_projet
+    AND etat_initial = true
+    INTO count_init_states;
+
+    IF count_init_states != 0 THEN
+        RAISE EXCEPTION 'Il est impossible d''avoir plus d''une variante représentant l''état initial du projet';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+-- FUNCTION check_variantes_etat_initial()
+COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
+
+
 -- fill_contextes_projets(integer)
 CREATE FUNCTION desimper.fill_contextes_projets(id_projet integer) RETURNS json
     LANGUAGE plpgsql
