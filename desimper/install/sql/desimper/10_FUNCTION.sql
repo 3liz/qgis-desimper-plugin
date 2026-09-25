@@ -70,8 +70,15 @@ BEGIN
             IF newjsonb ? 'surface_m' THEN
                 NEW.surface_m = ST_Area(NEW.geom);
             END IF;
-
         END IF;
+    END IF;
+
+    -- Set parent project with surfaces
+    IF newjsonb ? 'fk_id_projet' AND TG_TABLE_NAME = 'surfaces_projet' THEN
+        SELECT p.fk_id_projet INTO NEW.fk_id_projet
+        FROM desimper.variantes AS p
+        WHERE p.id = NEW.fk_id_variante
+        LIMIT 1;
     END IF;
 
     RETURN NEW;
@@ -147,30 +154,37 @@ BEGIN
     );   
 
     -- Loop to add all context who intersect the project
-    FOR contexte IN SELECT nom_schema, nom_table, code 
+    FOR contexte IN SELECT nom_schema, nom_table, code, calcul_indicateur, calcul_contrainte, calcul_couleur
     FROM desimper.liste_contextes
     WHERE to_regclass(format('%I.%I', nom_schema, nom_table)) IS NOT NULL -- avoid errors when a context is listed in liste_contextes but its data has not been imported yet
     LOOP
         EXECUTE format(
             $SQL$
                 INSERT INTO desimper.contextes_projets
-                    (fk_id_projet, geom, code_contexte, id_objet_contexte, surface_m, login)
+                    (fk_id_projet, geom, code_contexte, id_objet_contexte, surface_m, login, indicateur, est_contrainte, couleur)
                 SELECT
                     %1$L,
                     ST_Multi(ST_CollectionExtract(ST_MakeValid(valid_contexts.geom), 3)),
                     %2$L,
                     valid_contexts.id,
                     ST_Area(valid_contexts.geom),
-                    %6$L
+                    %6$L,
+                    (%7$s),
+                    (%8$s),
+                    (%9$s)
                 FROM (
                     SELECT c.id AS id,
+                    c.valeur AS valeur,
                     ST_Multi(ST_CollectionExtract(ST_Intersection(%3$L, ST_MakeValid(c.geom)), 3)) AS geom
                     FROM %4$I.%5$I AS c
                     WHERE ST_Intersects(c.geom, %3$L)
                 ) AS valid_contexts
                 WHERE NOT ST_IsEmpty(valid_contexts.geom)
             $SQL$,
-            id_projet, contexte.code, geom_projet, contexte.nom_schema, contexte.nom_table, login_projet
+            id_projet, contexte.code, geom_projet, contexte.nom_schema, contexte.nom_table, login_projet,
+            COALESCE(contexte.calcul_indicateur, 'NULL'),
+            COALESCE(contexte.calcul_contrainte, 'NULL'),
+            COALESCE(contexte.calcul_couleur, 'NULL')
         );
     END LOOP;
 
