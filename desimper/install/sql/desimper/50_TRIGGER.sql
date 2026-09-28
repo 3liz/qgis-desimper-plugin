@@ -19,6 +19,10 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- variantes check_variantes_etat_initial
+CREATE TRIGGER check_variantes_etat_initial BEFORE INSERT OR UPDATE OF etat_initial ON desimper.variantes FOR EACH ROW EXECUTE PROCEDURE desimper.check_variantes_etat_initial();
+
+
 -- contextes_projets trg_aa_before_insert_or_update
 CREATE TRIGGER trg_aa_before_insert_or_update BEFORE INSERT OR UPDATE ON desimper.contextes_projets FOR EACH ROW EXECUTE PROCEDURE desimper.aa_before_insert_or_update();
 

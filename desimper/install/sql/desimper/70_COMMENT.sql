@@ -23,6 +23,10 @@ SET row_security = off;
 COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
 
 
+-- FUNCTION check_variantes_etat_initial()
+COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
+
+
 -- FUNCTION fill_contextes_projets(id_projet integer)
 COMMENT ON FUNCTION desimper.fill_contextes_projets(id_projet integer) IS 'Ajoute à la table contextes_projets les contextes qui intersectent le projet';
 
@@ -88,6 +92,18 @@ COMMENT ON COLUMN desimper.contextes_projets.surface_m IS 'Surface en m² du con
 COMMENT ON COLUMN desimper.contextes_projets.login IS 'Login de l''utilisateur qui a créé le contexte';
 
 
+-- contextes_projets.indicateur
+COMMENT ON COLUMN desimper.contextes_projets.indicateur IS 'Indicateur en fonction de la valeur du contexte';
+
+
+-- contextes_projets.est_contrainte
+COMMENT ON COLUMN desimper.contextes_projets.est_contrainte IS 'Indique si le contexte est une contrainte';
+
+
+-- contextes_projets.couleur
+COMMENT ON COLUMN desimper.contextes_projets.couleur IS 'Couleur de représentation du contexte';
+
+
 -- liste_contextes
 COMMENT ON TABLE desimper.liste_contextes IS 'Table listant l''ensemble des contextes et leurs caractéristiques';
 
@@ -122,6 +138,18 @@ COMMENT ON COLUMN desimper.liste_contextes.cree_le IS 'Date de création du cont
 
 -- liste_contextes.modifie_le
 COMMENT ON COLUMN desimper.liste_contextes.modifie_le IS 'Date de la dernière modification du contexte';
+
+
+-- liste_contextes.calcul_indicateur
+COMMENT ON COLUMN desimper.liste_contextes.calcul_indicateur IS 'Expression CASE/WHEN utilisé pour déterminer l''indicateur en fonction de la valeur du contexte';
+
+
+-- liste_contextes.calcul_contrainte
+COMMENT ON COLUMN desimper.liste_contextes.calcul_contrainte IS 'Expression CASE/WHEN utilisé pour déterminer si la valeur du contexte est une contrainte (boolean)';
+
+
+-- liste_contextes.calcul_couleur
+COMMENT ON COLUMN desimper.liste_contextes.calcul_couleur IS 'Expression CASE/WHEN utilisé pour déterminer la couleur de représentation du contexte en fonction de la valeur du contexte';
 
 
 -- metadata

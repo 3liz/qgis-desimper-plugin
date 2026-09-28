@@ -57,7 +57,10 @@ CREATE TABLE desimper.contextes_projets (
     modifie_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
     code_contexte text NOT NULL,
     id_objet_contexte integer NOT NULL,
-    login text
+    login text,
+    indicateur text,
+    est_contrainte boolean,
+    couleur text
 );
 
 
@@ -87,7 +90,10 @@ CREATE TABLE desimper.liste_contextes (
     nom_schema character varying(50) NOT NULL,
     login text,
     cree_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
-    modifie_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone
+    modifie_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
+    calcul_indicateur text,
+    calcul_contrainte text,
+    calcul_couleur text
 );
 
 
@@ -325,7 +331,7 @@ CREATE TABLE desimper.variantes (
     id integer NOT NULL,
     fk_id_projet integer NOT NULL,
     libelle text NOT NULL,
-    etat_initial boolean DEFAULT true NOT NULL,
+    etat_initial boolean NOT NULL,
     cree_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
     modifie_le timestamp without time zone DEFAULT (now())::timestamp(0) without time zone,
     login text

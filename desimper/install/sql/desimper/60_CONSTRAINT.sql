@@ -193,7 +193,7 @@ ALTER TABLE ONLY desimper.surfaces_projet
 
 -- surfaces_projet fk_projet_surfaces_projet
 ALTER TABLE ONLY desimper.surfaces_projet
-    ADD CONSTRAINT fk_projet_surfaces_projet FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id);
+    ADD CONSTRAINT fk_projet_surfaces_projet FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id) ON DELETE CASCADE;
 
 
 -- variantes fk_projet_variantes
