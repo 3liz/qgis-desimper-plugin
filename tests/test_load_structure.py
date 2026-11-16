@@ -37,7 +37,7 @@ TABLES_FOR_FIRST_VERSION = [
 
 # Expected list of tables for current version
 # Must be changed any time the SQL structure is changed
-TABLES_FOR_CURRENT_VERSION = [*TABLES_FOR_FIRST_VERSION]
+TABLES_FOR_CURRENT_VERSION = sorted([*TABLES_FOR_FIRST_VERSION, "bassins_versants"])
 
 
 def test_processing_create(processing_provider: Provider):
@@ -85,11 +85,12 @@ def test_upgrade_from(
 
     feedback = LoggerProcessingFeedBack()
 
-    # Create the database from the latest update
+    # Create the database from the first version
+    # (all the migrations will be applied by the upgrade below)
     CreateDatabaseStructure.create_database(
         "test",
         db_schema,
-        version=db_install_version,
+        version=test_version,
         override=True,
         install_dir=install_dir,
         feedback=feedback,
@@ -129,7 +130,7 @@ def test_upgrade_from(
     cursor.execute(sql)
     record = cursor.fetchone()
     assert record is not None
-    assert int(record[0]) == db_install_version
+    assert int(record[0]) == test_version
 
     # Run the update database structure alg
     # Since the structure has been created with db_install_version above

@@ -21,6 +21,16 @@ SET row_security = off;
 
 SET default_tablespace = '';
 
+-- bassins_versants bassins_versants_fk_id_projet_corrige_key
+ALTER TABLE ONLY desimper.bassins_versants
+    ADD CONSTRAINT bassins_versants_fk_id_projet_corrige_key UNIQUE (fk_id_projet, corrige);
+
+
+-- bassins_versants bassins_versants_pkey
+ALTER TABLE ONLY desimper.bassins_versants
+    ADD CONSTRAINT bassins_versants_pkey PRIMARY KEY (id);
+
+
 -- communes communes_code_insee_key
 ALTER TABLE ONLY desimper.communes
     ADD CONSTRAINT communes_code_insee_key UNIQUE (code_insee);
@@ -159,6 +169,11 @@ ALTER TABLE ONLY desimper.variantes
 -- variantes variantes_pkey
 ALTER TABLE ONLY desimper.variantes
     ADD CONSTRAINT variantes_pkey PRIMARY KEY (id);
+
+
+-- bassins_versants bassins_versants_fk_id_projet_fkey
+ALTER TABLE ONLY desimper.bassins_versants
+    ADD CONSTRAINT bassins_versants_fk_id_projet_fkey FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id) ON DELETE CASCADE;
 
 
 -- projets fk_commune_principale

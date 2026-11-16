@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 import psycopg
+import pytest
 
 from qgis import processing
 from qgis.core import QgsVectorLayer
@@ -129,3 +130,94 @@ def test_fill_contextes_projets(
     assert result["status"] == "success"
     assert result["rows_inserted"] == 0
     assert result["contexts_intersected"] == 0
+
+
+def test_bassins_versants(initialized_database: psycopg.Connection):
+    """Compute, correct and invalidate the watersheds of a project."""
+    cursor = initialized_database.cursor()
+
+    def bassins_versants() -> list[tuple[int, bool]]:
+        cursor.execute("""
+            SELECT id, corrige
+            FROM desimper.bassins_versants
+            WHERE fk_id_projet = 1
+            ORDER BY corrige
+        """)
+        return cursor.fetchall()
+
+    # The hydro functions are not installed in the test database
+    cursor.execute("SELECT to_regnamespace('hydro')")
+    record = cursor.fetchone()
+    assert record is not None
+    assert record[0] is None, "The test database must not contain the hydro schema"
+
+    with pytest.raises(psycopg.errors.RaiseException, match=r"hydro\.bassin_polygone"):
+        cursor.execute("SELECT desimper.calculer_bassin_versant(1)")
+
+    # No automatic watershed to correct
+    with pytest.raises(psycopg.errors.RaiseException, match="pas de bassin versant"):
+        cursor.execute("SELECT desimper.creer_bassin_versant_corrige(1)")
+
+    # Stub of the hydro function: the watershed is the project buffered by 10 m
+    cursor.execute("""
+        CREATE SCHEMA hydro;
+        CREATE FUNCTION hydro.bassin_polygone(p_poly geometry, p_simplifier double precision DEFAULT 0)
+        RETURNS geometry LANGUAGE sql AS $$ SELECT ST_Buffer(p_poly, 10) $$;
+    """)
+    try:
+        # Unknown project
+        with pytest.raises(psycopg.errors.RaiseException, match="n'existe pas"):
+            cursor.execute("SELECT desimper.calculer_bassin_versant(-1)")
+
+        # The automatic watershed is created
+        cursor.execute("SELECT desimper.calculer_bassin_versant(1)")
+        record = cursor.fetchone()
+        assert record is not None
+        result = record[0]
+        assert result["type"] == "FeatureCollection"
+        assert result["features"][0]["geometry"]["type"] == "MultiPolygon"
+        auto = bassins_versants()
+        assert len(auto) == 1
+        assert auto[0][1] is False
+
+        # Computing again updates the same row
+        cursor.execute("SELECT desimper.calculer_bassin_versant(1)")
+        assert bassins_versants() == auto
+
+        # The corrected watershed is a copy of the automatic one
+        cursor.execute("SELECT desimper.creer_bassin_versant_corrige(1)")
+        record = cursor.fetchone()
+        assert record is not None
+        corrected_id = record[0]
+        assert bassins_versants() == [auto[0], (corrected_id, True)]
+        cursor.execute("""
+            SELECT ST_Equals(a.geom, c.geom)
+            FROM desimper.bassins_versants AS a, desimper.bassins_versants AS c
+            WHERE a.fk_id_projet = 1 AND NOT a.corrige
+            AND c.fk_id_projet = 1 AND c.corrige
+        """)
+        assert cursor.fetchone() == (True,)
+
+        # Creating it again returns the existing one
+        cursor.execute("SELECT desimper.creer_bassin_versant_corrige(1)")
+        assert cursor.fetchone() == (corrected_id,)
+
+        # Changing the project geometry removes the automatic watershed only
+        cursor.execute("""
+            UPDATE desimper.projets
+            SET geom = ST_Multi(ST_GeomFromText('POLYGON((0 0, 0 200, 200 200, 200 0, 0 0))', 2154))
+            WHERE id = 1
+        """)
+        assert bassins_versants() == [(corrected_id, True)]
+
+        # Recomputing does not touch the corrected watershed
+        cursor.execute("SELECT desimper.calculer_bassin_versant(1)")
+        result = bassins_versants()
+        assert len(result) == 2
+        assert result[1] == (corrected_id, True)
+
+        # Deleting the project deletes its watersheds
+        cursor.execute("DELETE FROM desimper.projets WHERE id = 1")
+        assert bassins_versants() == []
+    finally:
+        cursor.execute("DROP SCHEMA hydro CASCADE")

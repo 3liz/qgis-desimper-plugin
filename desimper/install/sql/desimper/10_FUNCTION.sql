@@ -90,6 +90,67 @@ $$;
 COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
 
 
+-- calculer_bassin_versant(integer)
+CREATE FUNCTION desimper.calculer_bassin_versant(id_projet integer) RETURNS json
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    projet_geom geometry;
+    bv_geom geometry;
+    bv_id integer;
+BEGIN
+
+    -- The hydro functions are installed apart from this plugin
+    IF to_regprocedure('hydro.bassin_polygone(geometry,double precision)') IS NULL THEN
+        RAISE EXCEPTION 'La fonction hydro.bassin_polygone(geometry, double precision) est absente de la base : impossible de calculer le bassin versant.';
+    END IF;
+
+    SELECT p.geom INTO projet_geom
+    FROM desimper.projets AS p
+    WHERE p.id = id_projet;
+
+    IF projet_geom IS NULL THEN
+        RAISE EXCEPTION 'Le projet % n''existe pas.', id_projet;
+    END IF;
+
+    -- Watershed of the project polygon (project included), simplified at 1 m
+    bv_geom = ST_Multi(ST_CollectionExtract(hydro.bassin_polygone(projet_geom, 1), 3));
+
+    IF bv_geom IS NULL OR ST_IsEmpty(bv_geom) THEN
+        RAISE EXCEPTION 'Le bassin versant du projet % n''a pas pu être calculé (projet hors des données hydrologiques ?).', id_projet;
+    END IF;
+
+    INSERT INTO desimper.bassins_versants (fk_id_projet, corrige, geom)
+    VALUES (id_projet, false, bv_geom)
+    ON CONFLICT (fk_id_projet, corrige)
+    DO UPDATE SET geom = EXCLUDED.geom
+    RETURNING id INTO bv_id;
+
+    RETURN json_build_object(
+        'type', 'FeatureCollection',
+        'features', json_build_array(
+            json_build_object(
+                'type', 'Feature',
+                'id', bv_id,
+                'geometry', ST_AsGeoJSON(bv_geom)::json,
+                'properties', json_build_object(
+                    'id', bv_id,
+                    'fk_id_projet', id_projet,
+                    'corrige', false
+                )
+            )
+        )
+    );
+END;
+$$;
+
+
+-- FUNCTION calculer_bassin_versant(id_projet integer)
+COMMENT ON FUNCTION desimper.calculer_bassin_versant(id_projet integer) IS 'Calcule (ou recalcule) le bassin versant automatique d''un projet avec hydro.bassin_polygone() et l''enregistre dans bassins_versants avec corrige = false.
+Le bassin versant corrigé par l''utilisateur n''est pas modifié.
+Renvoie le bassin versant en GeoJSON (FeatureCollection).';
+
+
 -- check_variantes_etat_initial()
 CREATE FUNCTION desimper.check_variantes_etat_initial() RETURNS trigger
     LANGUAGE plpgsql
@@ -118,6 +179,47 @@ $$;
 
 -- FUNCTION check_variantes_etat_initial()
 COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
+
+
+-- creer_bassin_versant_corrige(integer)
+CREATE FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    bv_id integer;
+BEGIN
+
+    -- The corrected watershed already exists
+    SELECT bv.id INTO bv_id
+    FROM desimper.bassins_versants AS bv
+    WHERE bv.fk_id_projet = id_projet
+    AND bv.corrige;
+
+    IF bv_id IS NOT NULL THEN
+        RETURN bv_id;
+    END IF;
+
+    -- Copy the automatic watershed
+    INSERT INTO desimper.bassins_versants (fk_id_projet, corrige, geom)
+    SELECT bv.fk_id_projet, true, bv.geom
+    FROM desimper.bassins_versants AS bv
+    WHERE bv.fk_id_projet = id_projet
+    AND NOT bv.corrige
+    RETURNING id INTO bv_id;
+
+    IF bv_id IS NULL THEN
+        RAISE EXCEPTION 'Le projet % n''a pas de bassin versant calculé automatiquement à corriger.', id_projet;
+    END IF;
+
+    RETURN bv_id;
+END;
+$$;
+
+
+-- FUNCTION creer_bassin_versant_corrige(id_projet integer)
+COMMENT ON FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) IS 'Crée le bassin versant corrigé (corrige = true) d''un projet en copiant son bassin versant automatique.
+Ne fait rien s''il existe déjà.
+Renvoie l''identifiant du bassin versant corrigé.';
 
 
 -- fill_contextes_projets(integer)
@@ -459,8 +561,16 @@ BEGIN
         -- Fill the contextes_projets table
         PERFORM desimper.fill_contextes_projets(NEW.id);
 
-        -- TO DO 
-        -- Check if surface are fitting in the new project geom... 
+        -- The automatic watershed is not valid anymore
+        -- The corrected one is kept
+        IF TG_OP = 'UPDATE' THEN
+            DELETE FROM desimper.bassins_versants
+            WHERE fk_id_projet = NEW.id
+            AND NOT corrige;
+        END IF;
+
+        -- TO DO
+        -- Check if surface are fitting in the new project geom...
 
     END IF;
 
@@ -473,6 +583,7 @@ $$;
 -- FUNCTION trg_after_projet_insert_or_update()
 COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
 Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
+Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé).
 Ne fait rien si la géométrie du projet n''a pas changé.';
 
 

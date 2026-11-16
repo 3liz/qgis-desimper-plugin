@@ -23,6 +23,10 @@ SET row_security = off;
 CREATE TRIGGER check_variantes_etat_initial BEFORE INSERT OR UPDATE OF etat_initial ON desimper.variantes FOR EACH ROW EXECUTE PROCEDURE desimper.check_variantes_etat_initial();
 
 
+-- bassins_versants trg_aa_before_insert_or_update
+CREATE TRIGGER trg_aa_before_insert_or_update BEFORE INSERT OR UPDATE ON desimper.bassins_versants FOR EACH ROW EXECUTE PROCEDURE desimper.aa_before_insert_or_update();
+
+
 -- contextes_projets trg_aa_before_insert_or_update
 CREATE TRIGGER trg_aa_before_insert_or_update BEFORE INSERT OR UPDATE ON desimper.contextes_projets FOR EACH ROW EXECUTE PROCEDURE desimper.aa_before_insert_or_update();
 

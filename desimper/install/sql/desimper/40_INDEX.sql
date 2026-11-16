@@ -21,6 +21,10 @@ SET row_security = off;
 
 SET default_tablespace = '';
 
+-- bassins_versants_geom_idx
+CREATE INDEX bassins_versants_geom_idx ON desimper.bassins_versants USING gist (geom);
+
+
 -- communes_geom_idx
 CREATE INDEX communes_geom_idx ON desimper.communes USING gist (geom);
 

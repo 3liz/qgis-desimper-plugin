@@ -23,8 +23,20 @@ SET row_security = off;
 COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquement à jour les champs suivants : cree_le, modifie_le, geom, commune_principale, surface_m';
 
 
+-- FUNCTION calculer_bassin_versant(id_projet integer)
+COMMENT ON FUNCTION desimper.calculer_bassin_versant(id_projet integer) IS 'Calcule (ou recalcule) le bassin versant automatique d''un projet avec hydro.bassin_polygone() et l''enregistre dans bassins_versants avec corrige = false.
+Le bassin versant corrigé par l''utilisateur n''est pas modifié.
+Renvoie le bassin versant en GeoJSON (FeatureCollection).';
+
+
 -- FUNCTION check_variantes_etat_initial()
 COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
+
+
+-- FUNCTION creer_bassin_versant_corrige(id_projet integer)
+COMMENT ON FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) IS 'Crée le bassin versant corrigé (corrige = true) d''un projet en copiant son bassin versant automatique.
+Ne fait rien s''il existe déjà.
+Renvoie l''identifiant du bassin versant corrigé.';
 
 
 -- FUNCTION fill_contextes_projets(id_projet integer)
@@ -45,7 +57,40 @@ Si le type n''est pas supporté, la valeur est considérée invalide.';
 -- FUNCTION trg_after_projet_insert_or_update()
 COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
 Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
+Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé).
 Ne fait rien si la géométrie du projet n''a pas changé.';
+
+
+-- bassins_versants
+COMMENT ON TABLE desimper.bassins_versants IS 'Table pour stocker les bassins versants associés aux projets. Au plus 2 bassins versants par projet : celui calculé automatiquement (corrige = false) et celui corrigé par l''utilisateur (corrige = true).';
+
+
+-- bassins_versants.id
+COMMENT ON COLUMN desimper.bassins_versants.id IS 'Identifiant unique du bassin versant.';
+
+
+-- bassins_versants.fk_id_projet
+COMMENT ON COLUMN desimper.bassins_versants.fk_id_projet IS 'Projet associé au bassin versant.';
+
+
+-- bassins_versants.corrige
+COMMENT ON COLUMN desimper.bassins_versants.corrige IS 'Indique si le bassin versant a été corrigé par l''utilisateur.';
+
+
+-- bassins_versants.geom
+COMMENT ON COLUMN desimper.bassins_versants.geom IS 'Géométrie du bassin versant.';
+
+
+-- bassins_versants.cree_le
+COMMENT ON COLUMN desimper.bassins_versants.cree_le IS 'Date de création du bassin versant.';
+
+
+-- bassins_versants.modifie_le
+COMMENT ON COLUMN desimper.bassins_versants.modifie_le IS 'Date de dernière modification du bassin versant.';
+
+
+-- bassins_versants.login
+COMMENT ON COLUMN desimper.bassins_versants.login IS 'Login de l''utilisateur ayant modifié le bassin versant.';
 
 
 -- communes
