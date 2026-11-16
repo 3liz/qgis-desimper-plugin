@@ -29,10 +29,6 @@ Le bassin versant corrigé par l''utilisateur n''est pas modifié.
 Renvoie le bassin versant en GeoJSON (FeatureCollection).';
 
 
--- FUNCTION check_variantes_etat_initial()
-COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
-
-
 -- FUNCTION creer_bassin_versant_corrige(id_projet integer)
 COMMENT ON FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) IS 'Crée le bassin versant corrigé (corrige = true) d''un projet en copiant son bassin versant automatique.
 Ne fait rien s''il existe déjà.
@@ -52,6 +48,11 @@ COMMENT ON FUNCTION desimper.is_given_type(s text, t text) IS ' Teste si la vale
 Retourne vrai s''il est possible de caster la valeur dans le type donné attendu.
 Valeurs vides et NULL sont toujours considérées valides. 
 Si le type n''est pas supporté, la valeur est considérée invalide.';
+
+
+-- FUNCTION set_variantes_etat_initial()
+COMMENT ON FUNCTION desimper.set_variantes_etat_initial() IS 'Fonction trigger calculant le champ etat_initial des variantes : vrai si le projet n''a pas encore de variante représentant son état initial, faux sinon.
+La valeur envoyée par le client est ignorée. Elle n''est plus modifiée après la création, sauf si la variante change de projet.';
 
 
 -- FUNCTION trg_after_projet_insert_or_update()

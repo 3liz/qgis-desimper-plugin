@@ -161,11 +161,6 @@ ALTER TABLE ONLY desimper.surfaces_projet
     ADD CONSTRAINT surfaces_projet_pkey PRIMARY KEY (id);
 
 
--- variantes variantes_libelle_key
-ALTER TABLE ONLY desimper.variantes
-    ADD CONSTRAINT variantes_libelle_key UNIQUE (libelle);
-
-
 -- variantes variantes_pkey
 ALTER TABLE ONLY desimper.variantes
     ADD CONSTRAINT variantes_pkey PRIMARY KEY (id);

@@ -151,36 +151,6 @@ Le bassin versant corrigé par l''utilisateur n''est pas modifié.
 Renvoie le bassin versant en GeoJSON (FeatureCollection).';
 
 
--- check_variantes_etat_initial()
-CREATE FUNCTION desimper.check_variantes_etat_initial() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-    DECLARE
-        count_init_states int;
-BEGIN
-
-    IF NEW.etat_initial = false THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT COUNT(fk_id_projet)
-    FROM desimper.variantes
-    WHERE fk_id_projet = NEW.fk_id_projet
-    AND etat_initial = true
-    INTO count_init_states;
-
-    IF count_init_states != 0 THEN
-        RAISE EXCEPTION 'Il est impossible d''avoir plus d''une variante représentant l''état initial du projet';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-
--- FUNCTION check_variantes_etat_initial()
-COMMENT ON FUNCTION desimper.check_variantes_etat_initial() IS 'Fonction trigger verifiant que chaque projet a seulement une variante représentant son état initial';
-
-
 -- creer_bassin_versant_corrige(integer)
 CREATE FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) RETURNS integer
     LANGUAGE plpgsql
@@ -548,6 +518,38 @@ COMMENT ON FUNCTION desimper.is_given_type(s text, t text) IS ' Teste si la vale
 Retourne vrai s''il est possible de caster la valeur dans le type donné attendu.
 Valeurs vides et NULL sont toujours considérées valides. 
 Si le type n''est pas supporté, la valeur est considérée invalide.';
+
+
+-- set_variantes_etat_initial()
+CREATE FUNCTION desimper.set_variantes_etat_initial() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    -- The value is set at creation and cannot be changed afterwards,
+    -- unless the variant is moved to another project
+    IF TG_OP = 'UPDATE' AND NEW.fk_id_projet = OLD.fk_id_projet THEN
+        NEW.etat_initial = OLD.etat_initial;
+        RETURN NEW;
+    END IF;
+
+    -- The variant is the initial state if its project does not have one yet
+    NEW.etat_initial = NOT EXISTS (
+        SELECT 1
+        FROM desimper.variantes AS v
+        WHERE v.fk_id_projet = NEW.fk_id_projet
+        AND v.etat_initial
+        AND v.id IS DISTINCT FROM NEW.id
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+-- FUNCTION set_variantes_etat_initial()
+COMMENT ON FUNCTION desimper.set_variantes_etat_initial() IS 'Fonction trigger calculant le champ etat_initial des variantes : vrai si le projet n''a pas encore de variante représentant son état initial, faux sinon.
+La valeur envoyée par le client est ignorée. Elle n''est plus modifiée après la création, sauf si la variante change de projet.';
 
 
 -- trg_after_projet_insert_or_update()

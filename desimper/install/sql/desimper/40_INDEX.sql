@@ -81,6 +81,10 @@ CREATE INDEX projets_geom_idx ON desimper.projets USING gist (geom);
 CREATE INDEX surfaces_projet_geom_idx ON desimper.surfaces_projet USING gist (geom);
 
 
+-- variantes_fk_id_projet_etat_initial_idx
+CREATE UNIQUE INDEX variantes_fk_id_projet_etat_initial_idx ON desimper.variantes USING btree (fk_id_projet) WHERE etat_initial;
+
+
 --
 -- PostgreSQL database dump complete
 --
