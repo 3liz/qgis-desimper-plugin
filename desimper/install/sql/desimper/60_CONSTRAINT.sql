@@ -46,6 +46,16 @@ ALTER TABLE ONLY desimper.contextes_projets
     ADD CONSTRAINT contextes_projets_pkey PRIMARY KEY (id);
 
 
+-- fleches_ecoulement fleches_ecoulement_pkey
+ALTER TABLE ONLY desimper.fleches_ecoulement
+    ADD CONSTRAINT fleches_ecoulement_pkey PRIMARY KEY (id);
+
+
+-- lignes_ecoulement lignes_ecoulement_pkey
+ALTER TABLE ONLY desimper.lignes_ecoulement
+    ADD CONSTRAINT lignes_ecoulement_pkey PRIMARY KEY (id);
+
+
 -- liste_contextes liste_contextes_code_key
 ALTER TABLE ONLY desimper.liste_contextes
     ADD CONSTRAINT liste_contextes_code_key UNIQUE (code);
@@ -219,6 +229,16 @@ ALTER TABLE ONLY desimper.projets
 -- surfaces_projet fk_variante_surfaces_projet
 ALTER TABLE ONLY desimper.surfaces_projet
     ADD CONSTRAINT fk_variante_surfaces_projet FOREIGN KEY (fk_id_variante) REFERENCES desimper.variantes(id);
+
+
+-- fleches_ecoulement fleches_ecoulement_fk_id_projet_fkey
+ALTER TABLE ONLY desimper.fleches_ecoulement
+    ADD CONSTRAINT fleches_ecoulement_fk_id_projet_fkey FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id) ON DELETE CASCADE;
+
+
+-- lignes_ecoulement lignes_ecoulement_fk_id_projet_fkey
+ALTER TABLE ONLY desimper.lignes_ecoulement
+    ADD CONSTRAINT lignes_ecoulement_fk_id_projet_fkey FOREIGN KEY (fk_id_projet) REFERENCES desimper.projets(id) ON DELETE CASCADE;
 
 
 --

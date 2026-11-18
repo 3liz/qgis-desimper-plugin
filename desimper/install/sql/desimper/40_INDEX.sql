@@ -73,6 +73,22 @@ CREATE INDEX fk_type_projet_idx ON desimper.projets USING btree (fk_type_projet)
 CREATE INDEX fk_usages_surface_idx ON desimper.surfaces_projet USING btree (fk_usages_surface);
 
 
+-- fleches_ecoulement_fk_id_projet_idx
+CREATE INDEX fleches_ecoulement_fk_id_projet_idx ON desimper.fleches_ecoulement USING btree (fk_id_projet);
+
+
+-- fleches_ecoulement_geom_idx
+CREATE INDEX fleches_ecoulement_geom_idx ON desimper.fleches_ecoulement USING gist (geom);
+
+
+-- lignes_ecoulement_fk_id_projet_idx
+CREATE INDEX lignes_ecoulement_fk_id_projet_idx ON desimper.lignes_ecoulement USING btree (fk_id_projet);
+
+
+-- lignes_ecoulement_geom_idx
+CREATE INDEX lignes_ecoulement_geom_idx ON desimper.lignes_ecoulement USING gist (geom);
+
+
 -- projets_geom_idx
 CREATE INDEX projets_geom_idx ON desimper.projets USING gist (geom);
 

@@ -37,7 +37,14 @@ TABLES_FOR_FIRST_VERSION = [
 
 # Expected list of tables for current version
 # Must be changed any time the SQL structure is changed
-TABLES_FOR_CURRENT_VERSION = sorted([*TABLES_FOR_FIRST_VERSION, "bassins_versants"])
+TABLES_FOR_CURRENT_VERSION = sorted(
+    [
+        *TABLES_FOR_FIRST_VERSION,
+        "bassins_versants",
+        "fleches_ecoulement",
+        "lignes_ecoulement",
+    ]
+)
 
 
 def test_processing_create(processing_provider: Provider):

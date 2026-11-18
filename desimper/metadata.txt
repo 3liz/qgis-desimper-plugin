@@ -27,5 +27,5 @@ supportQt6=True
 hasProcessingProvider=True
 
 [desimper]
-schemaVersion=6
+schemaVersion=7
 schemaName=desimper

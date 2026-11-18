@@ -151,6 +151,70 @@ Le bassin versant corrigé par l''utilisateur n''est pas modifié.
 Renvoie le bassin versant en GeoJSON (FeatureCollection).';
 
 
+-- calculer_ecoulements(integer, double precision, double precision, double precision)
+CREATE FUNCTION desimper.calculer_ecoulements(id_projet integer, pas_fleches double precision DEFAULT 5, espacement_lignes double precision DEFAULT 10, marge_lignes double precision DEFAULT 50) RETURNS json
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    projet_geom geometry;
+    nb_fleches integer;
+    nb_lignes integer;
+BEGIN
+
+    -- The hydro functions are installed apart from this plugin
+    IF to_regprocedure('hydro.fleches_ecoulement(geometry,double precision)') IS NULL
+        OR to_regprocedure('hydro.lignes_ecoulement(geometry,double precision,double precision)') IS NULL
+    THEN
+        RAISE EXCEPTION 'Les fonctions hydro.fleches_ecoulement(geometry, double precision) et hydro.lignes_ecoulement(geometry, double precision, double precision) sont absentes de la base : impossible de calculer les écoulements.';
+    END IF;
+
+    SELECT p.geom INTO projet_geom
+    FROM desimper.projets AS p
+    WHERE p.id = id_projet;
+
+    IF projet_geom IS NULL THEN
+        RAISE EXCEPTION 'Le projet % n''existe pas.', id_projet;
+    END IF;
+
+    -- Replace the previous computation
+    DELETE FROM desimper.fleches_ecoulement AS f
+    WHERE f.fk_id_projet = id_projet;
+
+    DELETE FROM desimper.lignes_ecoulement AS l
+    WHERE l.fk_id_projet = id_projet;
+
+    -- Flow arrows
+    INSERT INTO desimper.fleches_ecoulement (fk_id_projet, angle, coherence, nb_cellules, geom)
+    SELECT id_projet, f.angle, f.coherence, f.nb_cellules, ST_Transform(f.geom, 2154)
+    FROM hydro.fleches_ecoulement(projet_geom, pas_fleches) AS f
+    WHERE f.geom IS NOT NULL
+    AND f.angle IS NOT NULL;
+
+    GET DIAGNOSTICS nb_fleches = ROW_COUNT;
+
+    -- Flow lines
+    INSERT INTO desimper.lignes_ecoulement (fk_id_projet, depart, longueur, geom)
+    SELECT id_projet, l.depart, l.longueur, ST_Transform(l.geom, 2154)
+    FROM hydro.lignes_ecoulement(projet_geom, espacement_lignes, marge_lignes) AS l
+    WHERE GeometryType(l.geom) = 'LINESTRING';
+
+    GET DIAGNOSTICS nb_lignes = ROW_COUNT;
+
+    RETURN json_build_object(
+        'fk_id_projet', id_projet,
+        'nb_fleches', nb_fleches,
+        'nb_lignes', nb_lignes
+    );
+END;
+$$;
+
+
+-- FUNCTION calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision)
+COMMENT ON FUNCTION desimper.calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision) IS 'Calcule (ou recalcule) les flèches et les lignes d''écoulement d''un projet avec hydro.fleches_ecoulement() et hydro.lignes_ecoulement(), et les enregistre dans fleches_ecoulement et lignes_ecoulement.
+Paramètres : taille des mailles des flèches (m), espacement des départs des lignes (m), prolongement des lignes au-delà du projet (m).
+Renvoie le nombre de flèches et de lignes enregistrées.';
+
+
 -- creer_bassin_versant_corrige(integer)
 CREATE FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) RETURNS integer
     LANGUAGE plpgsql
@@ -563,12 +627,19 @@ BEGIN
         -- Fill the contextes_projets table
         PERFORM desimper.fill_contextes_projets(NEW.id);
 
-        -- The automatic watershed is not valid anymore
-        -- The corrected one is kept
         IF TG_OP = 'UPDATE' THEN
+            -- The automatic watershed is not valid anymore
+            -- The corrected one is kept
             DELETE FROM desimper.bassins_versants
             WHERE fk_id_projet = NEW.id
             AND NOT corrige;
+
+            -- The flow arrows and lines are not valid anymore
+            DELETE FROM desimper.fleches_ecoulement
+            WHERE fk_id_projet = NEW.id;
+
+            DELETE FROM desimper.lignes_ecoulement
+            WHERE fk_id_projet = NEW.id;
         END IF;
 
         -- TO DO
@@ -585,7 +656,7 @@ $$;
 -- FUNCTION trg_after_projet_insert_or_update()
 COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
 Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
-Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé).
+Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé), ainsi que ses flèches et lignes d''écoulement.
 Ne fait rien si la géométrie du projet n''a pas changé.';
 
 

@@ -29,6 +29,12 @@ Le bassin versant corrigé par l''utilisateur n''est pas modifié.
 Renvoie le bassin versant en GeoJSON (FeatureCollection).';
 
 
+-- FUNCTION calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision)
+COMMENT ON FUNCTION desimper.calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision) IS 'Calcule (ou recalcule) les flèches et les lignes d''écoulement d''un projet avec hydro.fleches_ecoulement() et hydro.lignes_ecoulement(), et les enregistre dans fleches_ecoulement et lignes_ecoulement.
+Paramètres : taille des mailles des flèches (m), espacement des départs des lignes (m), prolongement des lignes au-delà du projet (m).
+Renvoie le nombre de flèches et de lignes enregistrées.';
+
+
 -- FUNCTION creer_bassin_versant_corrige(id_projet integer)
 COMMENT ON FUNCTION desimper.creer_bassin_versant_corrige(id_projet integer) IS 'Crée le bassin versant corrigé (corrige = true) d''un projet en copiant son bassin versant automatique.
 Ne fait rien s''il existe déjà.
@@ -58,7 +64,7 @@ La valeur envoyée par le client est ignorée. Elle n''est plus modifiée après
 -- FUNCTION trg_after_projet_insert_or_update()
 COMMENT ON FUNCTION desimper.trg_after_projet_insert_or_update() IS 'Fonction trigger permettant de mettre à jour les tables de données métier en lien avec le projet.
 Appelle desimper.fill_contextes_projets() avec l''identifiant du projet.
-Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé).
+Supprime le bassin versant automatique du projet (le bassin versant corrigé est conservé), ainsi que ses flèches et lignes d''écoulement.
 Ne fait rien si la géométrie du projet n''a pas changé.';
 
 
@@ -148,6 +154,66 @@ COMMENT ON COLUMN desimper.contextes_projets.est_contrainte IS 'Indique si le co
 
 -- contextes_projets.couleur
 COMMENT ON COLUMN desimper.contextes_projets.couleur IS 'Couleur de représentation du contexte';
+
+
+-- fleches_ecoulement
+COMMENT ON TABLE desimper.fleches_ecoulement IS 'Flèches d''écoulement des projets : une flèche par maille, orientée selon la direction moyenne de l''écoulement D8 des cellules de la maille. Calculées avec hydro.fleches_ecoulement().';
+
+
+-- fleches_ecoulement.id
+COMMENT ON COLUMN desimper.fleches_ecoulement.id IS 'Identifiant unique de la flèche.';
+
+
+-- fleches_ecoulement.fk_id_projet
+COMMENT ON COLUMN desimper.fleches_ecoulement.fk_id_projet IS 'Projet associé à la flèche.';
+
+
+-- fleches_ecoulement.angle
+COMMENT ON COLUMN desimper.fleches_ecoulement.angle IS 'Direction de l''écoulement, en degrés depuis le nord dans le sens des aiguilles d''une montre (rotation des symboles QGIS).';
+
+
+-- fleches_ecoulement.coherence
+COMMENT ON COLUMN desimper.fleches_ecoulement.coherence IS 'Cohérence des directions de la maille, de 0 (replat, crête) à 1 (toutes les cellules vont dans le même sens).';
+
+
+-- fleches_ecoulement.nb_cellules
+COMMENT ON COLUMN desimper.fleches_ecoulement.nb_cellules IS 'Nombre de cellules du MNT prises en compte dans la maille.';
+
+
+-- fleches_ecoulement.geom
+COMMENT ON COLUMN desimper.fleches_ecoulement.geom IS 'Centre de la maille.';
+
+
+-- fleches_ecoulement.cree_le
+COMMENT ON COLUMN desimper.fleches_ecoulement.cree_le IS 'Date de calcul de la flèche.';
+
+
+-- lignes_ecoulement
+COMMENT ON TABLE desimper.lignes_ecoulement IS 'Lignes d''écoulement des projets : tracées de cellule en cellule selon les directions D8, depuis des points de départ régulièrement espacés, et prolongées au-delà du projet. Calculées avec hydro.lignes_ecoulement().';
+
+
+-- lignes_ecoulement.id
+COMMENT ON COLUMN desimper.lignes_ecoulement.id IS 'Identifiant unique de la ligne.';
+
+
+-- lignes_ecoulement.fk_id_projet
+COMMENT ON COLUMN desimper.lignes_ecoulement.fk_id_projet IS 'Projet associé à la ligne.';
+
+
+-- lignes_ecoulement.depart
+COMMENT ON COLUMN desimper.lignes_ecoulement.depart IS 'Identifiant de la cellule de départ de la ligne dans la grille hydrologique.';
+
+
+-- lignes_ecoulement.longueur
+COMMENT ON COLUMN desimper.lignes_ecoulement.longueur IS 'Longueur de la ligne (m).';
+
+
+-- lignes_ecoulement.geom
+COMMENT ON COLUMN desimper.lignes_ecoulement.geom IS 'Tracé de la ligne d''écoulement.';
+
+
+-- lignes_ecoulement.cree_le
+COMMENT ON COLUMN desimper.lignes_ecoulement.cree_le IS 'Date de calcul de la ligne.';
 
 
 -- liste_contextes
