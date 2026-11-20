@@ -24,13 +24,13 @@ COMMENT ON FUNCTION desimper.aa_before_insert_or_update() IS 'Met automatiquemen
 
 
 -- FUNCTION calculer_bassin_versant(id_projet integer)
-COMMENT ON FUNCTION desimper.calculer_bassin_versant(id_projet integer) IS 'Calcule (ou recalcule) le bassin versant automatique d''un projet avec hydro.bassin_polygone() et l''enregistre dans bassins_versants avec corrige = false.
+COMMENT ON FUNCTION desimper.calculer_bassin_versant(id_projet integer) IS 'Calcule (ou recalcule) le bassin versant automatique d''un projet avec desimper.hydro_bassin_polygone() et l''enregistre dans bassins_versants avec corrige = false.
 Le bassin versant corrigé par l''utilisateur n''est pas modifié.
 Renvoie le bassin versant en GeoJSON (FeatureCollection).';
 
 
 -- FUNCTION calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision)
-COMMENT ON FUNCTION desimper.calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision) IS 'Calcule (ou recalcule) les flèches et les lignes d''écoulement d''un projet avec hydro.fleches_ecoulement() et hydro.lignes_ecoulement(), et les enregistre dans fleches_ecoulement et lignes_ecoulement.
+COMMENT ON FUNCTION desimper.calculer_ecoulements(id_projet integer, pas_fleches double precision, espacement_lignes double precision, marge_lignes double precision) IS 'Calcule (ou recalcule) les flèches et les lignes d''écoulement d''un projet avec desimper.hydro_fleches_ecoulement() et desimper.hydro_lignes_ecoulement(), et les enregistre dans fleches_ecoulement et lignes_ecoulement.
 Paramètres : taille des mailles des flèches (m), espacement des départs des lignes (m), prolongement des lignes au-delà du projet (m).
 Renvoie le nombre de flèches et de lignes enregistrées.';
 
@@ -43,6 +43,42 @@ Renvoie l''identifiant du bassin versant corrigé.';
 
 -- FUNCTION fill_contextes_projets(id_projet integer)
 COMMENT ON FUNCTION desimper.fill_contextes_projets(id_projet integer) IS 'Ajoute à la table contextes_projets les contextes qui intersectent le projet';
+
+
+-- FUNCTION hydro_bassin_point(p_point geometry, p_rayon double precision)
+COMMENT ON FUNCTION desimper.hydro_bassin_point(p_point geometry, p_rayon double precision) IS 'Bassin versant d''un point, recalé sur le réseau dans le rayon p_rayon (m) : remontée fine cellule par cellule dans son bassin élémentaire, unie aux bassins amont reconstruits.';
+
+
+-- FUNCTION hydro_bassin_polygone(p_poly geometry, p_simplifier double precision)
+COMMENT ON FUNCTION desimper.hydro_bassin_polygone(p_poly geometry, p_simplifier double precision) IS 'Bassin contributif d''un polygone de projet, polygone inclus : une remontée par bassin élémentaire, depuis tous les exutoires du polygone. Simplifié avec la tolérance p_simplifier (m).';
+
+
+-- FUNCTION hydro_bassin_versant(p_points geometry, p_rayon double precision, p_simplifier double precision)
+COMMENT ON FUNCTION desimper.hydro_bassin_versant(p_points geometry, p_rayon double precision, p_simplifier double precision) IS 'Bassin versant unique d''un point ou d''un multipoint, simplifié avec la tolérance p_simplifier (m).';
+
+
+-- FUNCTION hydro_bassins_par_point(p_points geometry, p_rayon double precision)
+COMMENT ON FUNCTION desimper.hydro_bassins_par_point(p_points geometry, p_rayon double precision) IS 'Un bassin versant par point d''un multipoint.';
+
+
+-- FUNCTION hydro_elements_amont(p_departs bigint[], p_ouvrir boolean)
+COMMENT ON FUNCTION desimper.hydro_elements_amont(p_departs bigint[], p_ouvrir boolean) IS 'Morceaux du bassin amont d''un ensemble de nœuds : polygone élémentaire des nœuds non précalculés, bassin amont stocké des nœuds précalculés (où la remontée s''arrête). p_ouvrir = true développe toujours les nœuds de départ.';
+
+
+-- FUNCTION hydro_fleches_ecoulement(p_poly geometry, p_pas double precision)
+COMMENT ON FUNCTION desimper.hydro_fleches_ecoulement(p_poly geometry, p_pas double precision) IS 'Flèches d''écoulement d''un polygone : direction moyenne de l''écoulement D8 (angle en degrés depuis le nord, sens horaire) et cohérence des directions, par maille de p_pas mètres.';
+
+
+-- FUNCTION hydro_lignes_ecoulement(p_poly geometry, p_espacement double precision, p_marge double precision)
+COMMENT ON FUNCTION desimper.hydro_lignes_ecoulement(p_poly geometry, p_espacement double precision, p_marge double precision) IS 'Lignes d''écoulement tracées de cellule en cellule depuis des départs espacés de p_espacement mètres dans le polygone, jusqu''à la sortie du polygone élargi de p_marge mètres.';
+
+
+-- FUNCTION hydro_pixels(r raster)
+COMMENT ON FUNCTION desimper.hydro_pixels(r raster) IS 'Pixels d''une tuile (ou d''un extrait de tuile) du raster D8, avec leur identifiant global de cellule (lig * ncols + col), leur ligne, leur colonne et leur valeur.';
+
+
+-- FUNCTION hydro_remontee(p_zone geometry, p_noeud bigint, p_departs bigint[], p_sur_cours boolean)
+COMMENT ON FUNCTION desimper.hydro_remontee(p_zone geometry, p_noeud bigint, p_departs bigint[], p_sur_cours boolean) IS 'Remontée multi-départs dans une zone (un nœud, ou une fenêtre hors nœud), unie aux bassins amont des nœuds qui s''y jettent.';
 
 
 -- FUNCTION import_data_from_temporary_tables(temp_schema text, temp_table text, label_field text, value_field text, unique_id_field text, code_context text)
@@ -157,7 +193,7 @@ COMMENT ON COLUMN desimper.contextes_projets.couleur IS 'Couleur de représentat
 
 
 -- fleches_ecoulement
-COMMENT ON TABLE desimper.fleches_ecoulement IS 'Flèches d''écoulement des projets : une flèche par maille, orientée selon la direction moyenne de l''écoulement D8 des cellules de la maille. Calculées avec hydro.fleches_ecoulement().';
+COMMENT ON TABLE desimper.fleches_ecoulement IS 'Flèches d''écoulement des projets : une flèche par maille, orientée selon la direction moyenne de l''écoulement D8 des cellules de la maille. Calculées avec desimper.hydro_fleches_ecoulement().';
 
 
 -- fleches_ecoulement.id
@@ -188,8 +224,140 @@ COMMENT ON COLUMN desimper.fleches_ecoulement.geom IS 'Centre de la maille.';
 COMMENT ON COLUMN desimper.fleches_ecoulement.cree_le IS 'Date de calcul de la flèche.';
 
 
+-- hydro_bv_amont
+COMMENT ON TABLE desimper.hydro_bv_amont IS 'Bassins amont précalculés des nœuds qui drainent une grande surface (hydro_noeuds.precalc).';
+
+
+-- hydro_bv_amont.id
+COMMENT ON COLUMN desimper.hydro_bv_amont.id IS 'Nœud dont c''est le bassin amont.';
+
+
+-- hydro_bv_amont.geom
+COMMENT ON COLUMN desimper.hydro_bv_amont.geom IS 'Bassin amont complet du nœud.';
+
+
+-- hydro_codes_d8
+COMMENT ON TABLE desimper.hydro_codes_d8 IS 'Codage des directions D8 de TauDEM : 1 = est, puis sens antihoraire jusqu''à 8 = sud-est.';
+
+
+-- hydro_codes_d8.code
+COMMENT ON COLUMN desimper.hydro_codes_d8.code IS 'Code de direction D8 de TauDEM.';
+
+
+-- hydro_codes_d8.dl
+COMMENT ON COLUMN desimper.hydro_codes_d8.dl IS 'Décalage en ligne vers la cellule aval (positif vers le bas).';
+
+
+-- hydro_codes_d8.dc
+COMMENT ON COLUMN desimper.hydro_codes_d8.dc IS 'Décalage en colonne vers la cellule aval (positif vers la droite).';
+
+
+-- hydro_d8_raster
+COMMENT ON TABLE desimper.hydro_d8_raster IS 'Directions d''écoulement D8 à 1 m (codes TauDEM), en tuiles. Chargées avec raster2pgsql -a.';
+
+
+-- hydro_d8_raster.rid
+COMMENT ON COLUMN desimper.hydro_d8_raster.rid IS 'Identifiant de la tuile.';
+
+
+-- hydro_d8_raster.rast
+COMMENT ON COLUMN desimper.hydro_d8_raster.rast IS 'Tuile du raster des directions D8.';
+
+
+-- hydro_grille
+COMMENT ON TABLE desimper.hydro_grille IS 'Grille du raster des directions D8 (une seule ligne). Une cellule a pour identifiant global lig * ncols + col. Ne doit jamais être recalculée en production : les identifiants de cellule stockés dans hydro_noeuds en dépendent.';
+
+
+-- hydro_grille.x0
+COMMENT ON COLUMN desimper.hydro_grille.x0 IS 'Abscisse du coin supérieur gauche de la grille.';
+
+
+-- hydro_grille.y0
+COMMENT ON COLUMN desimper.hydro_grille.y0 IS 'Ordonnée du coin supérieur gauche de la grille.';
+
+
+-- hydro_grille.sx
+COMMENT ON COLUMN desimper.hydro_grille.sx IS 'Taille d''une cellule en X (m).';
+
+
+-- hydro_grille.sy
+COMMENT ON COLUMN desimper.hydro_grille.sy IS 'Taille d''une cellule en Y (m), négative.';
+
+
+-- hydro_grille.srid
+COMMENT ON COLUMN desimper.hydro_grille.srid IS 'Système de coordonnées de la grille.';
+
+
+-- hydro_grille.ncols
+COMMENT ON COLUMN desimper.hydro_grille.ncols IS 'Nombre de colonnes de la grille.';
+
+
+-- hydro_noeuds
+COMMENT ON TABLE desimper.hydro_noeuds IS 'Nœuds du graphe hydrographique : un nœud par bassin élémentaire, relié à son nœud aval.';
+
+
+-- hydro_noeuds.id
+COMMENT ON COLUMN desimper.hydro_noeuds.id IS 'Identifiant du nœud : morceau * 1 000 000 + numéro TauDEM du bassin (WSNO).';
+
+
+-- hydro_noeuds.piece
+COMMENT ON COLUMN desimper.hydro_noeuds.piece IS 'Morceau de calcul TauDEM d''origine.';
+
+
+-- hydro_noeuds.ds
+COMMENT ON COLUMN desimper.hydro_noeuds.ds IS 'Nœud aval (NULL à l''exutoire).';
+
+
+-- hydro_noeuds.entree
+COMMENT ON COLUMN desimper.hydro_noeuds.entree IS 'Cellule d''entrée dans le nœud aval quand l''eau traverse une limite de morceau (NULL si le nœud arrive en tête du tronçon aval).';
+
+
+-- hydro_noeuds.resolu
+COMMENT ON COLUMN desimper.hydro_noeuds.resolu IS 'Nœud aval recherché (utilisé pendant la préparation).';
+
+
+-- hydro_noeuds.geom
+COMMENT ON COLUMN desimper.hydro_noeuds.geom IS 'Polygone du bassin élémentaire, densifié avec un sommet par mètre.';
+
+
+-- hydro_noeuds.surf
+COMMENT ON COLUMN desimper.hydro_noeuds.surf IS 'Surface du bassin élémentaire (m²).';
+
+
+-- hydro_noeuds.surf_amont
+COMMENT ON COLUMN desimper.hydro_noeuds.surf_amont IS 'Surface drainée par le nœud, bassins amont compris (m²).';
+
+
+-- hydro_noeuds.precalc
+COMMENT ON COLUMN desimper.hydro_noeuds.precalc IS 'Bassin amont précalculé dans hydro_bv_amont.';
+
+
+-- hydro_troncons
+COMMENT ON TABLE desimper.hydro_troncons IS 'Tronçons du réseau hydrographique TauDEM, utilisés pour recaler les points sur les cours d''eau.';
+
+
+-- hydro_troncons.id
+COMMENT ON COLUMN desimper.hydro_troncons.id IS 'Nœud (bassin élémentaire) du tronçon.';
+
+
+-- hydro_troncons.piece
+COMMENT ON COLUMN desimper.hydro_troncons.piece IS 'Morceau de calcul TauDEM d''origine.';
+
+
+-- hydro_troncons.linkno
+COMMENT ON COLUMN desimper.hydro_troncons.linkno IS 'Numéro TauDEM du tronçon dans son morceau.';
+
+
+-- hydro_troncons.dslinkno
+COMMENT ON COLUMN desimper.hydro_troncons.dslinkno IS 'Numéro TauDEM du tronçon aval dans le même morceau.';
+
+
+-- hydro_troncons.geom
+COMMENT ON COLUMN desimper.hydro_troncons.geom IS 'Tracé du tronçon.';
+
+
 -- lignes_ecoulement
-COMMENT ON TABLE desimper.lignes_ecoulement IS 'Lignes d''écoulement des projets : tracées de cellule en cellule selon les directions D8, depuis des points de départ régulièrement espacés, et prolongées au-delà du projet. Calculées avec hydro.lignes_ecoulement().';
+COMMENT ON TABLE desimper.lignes_ecoulement IS 'Lignes d''écoulement des projets : tracées de cellule en cellule selon les directions D8, depuis des points de départ régulièrement espacés, et prolongées au-delà du projet. Calculées avec desimper.hydro_lignes_ecoulement().';
 
 
 -- lignes_ecoulement.id

@@ -20,6 +20,20 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Data for Name: hydro_codes_d8; Type: TABLE DATA; Schema: desimper; Owner: -
+--
+
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (1, 0, 1);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (2, -1, 1);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (3, -1, 0);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (4, -1, -1);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (5, 0, -1);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (6, 1, -1);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (7, 1, 0);
+INSERT INTO desimper.hydro_codes_d8 (code, dl, dc) VALUES (8, 1, 1);
+
+
+--
 -- Data for Name: nomenclature_destinations; Type: TABLE DATA; Schema: desimper; Owner: -
 --
 

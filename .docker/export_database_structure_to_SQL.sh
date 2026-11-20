@@ -64,6 +64,8 @@ for ITEM in FUNCTION "TABLE|SEQUENCE|DEFAULT" VIEW INDEX TRIGGER CONSTRAINT COMM
     sed -i -E "s#\\\(un)?restrict .*##g" "$OUTDIR"/"$I"_"$ITEM".sql;
     # Replace public.geometry by geometry
     sed -i "s#public.geometry#geometry#g" "$OUTDIR"/"$I"_"$ITEM".sql;
+    # Replace public.raster by raster
+    sed -i "s#public.raster#raster#g" "$OUTDIR"/"$I"_"$ITEM".sql;
     # Rename
     rename -f 's#\|#_#g' "$OUTDIR"/"$I"_"$ITEM".sql;
     # Increment I
@@ -78,7 +80,7 @@ echo "GLOSSARY"
 if [ $SCHEMA = 'desimper' ]
 then
     echo "---" > "$OUTDIR"/"90_GLOSSARY.sql"
-    pg_dump service=$SERVICE --data-only --inserts --column-inserts -n $SCHEMA --no-acl --no-owner --table "$SCHEMA.nomenclature_*" -f "$OUTDIR"/90_GLOSSARY.sql
+    pg_dump service=$SERVICE --data-only --inserts --column-inserts -n $SCHEMA --no-acl --no-owner --table "$SCHEMA.nomenclature_*" --table "$SCHEMA.hydro_codes_d8" -f "$OUTDIR"/90_GLOSSARY.sql
     sed -i "s#SET idle_in_transaction_session_timeout = 0;##g" "$OUTDIR"/"90_GLOSSARY.sql"
     sed -i "s#SELECT pg_catalog.set_config('search_path', '', false);##g" "$OUTDIR"/"90_GLOSSARY.sql"
     # Remove --- Dumped blah

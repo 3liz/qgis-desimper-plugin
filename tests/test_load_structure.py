@@ -43,11 +43,29 @@ TABLES_FOR_CURRENT_VERSION = sorted(
         "bassins_versants",
         "fleches_ecoulement",
         "lignes_ecoulement",
+        "hydro_bv_amont",
+        "hydro_codes_d8",
+        "hydro_d8_raster",
+        "hydro_grille",
+        "hydro_noeuds",
+        "hydro_troncons",
     ]
 )
 
 
-def test_processing_create(processing_provider: Provider):
+def check_hydro_tables(cursor: psycopg.Cursor, schema: str):
+    """The TauDEM D8 coding is installed, the hydrological data are not"""
+    cursor.execute(f"SELECT count(*) FROM {schema}.hydro_codes_d8")
+    assert cursor.fetchone() == (8,)
+    cursor.execute(f"SELECT count(*) FROM {schema}.hydro_grille")
+    assert cursor.fetchone() == (0,)
+
+
+def test_processing_create(
+    processing_provider: Provider,
+    db_connection: psycopg.Connection,
+    db_schema: str,
+):
     """Test the processing algorithm for creating the database structure."""
 
     params = {
@@ -63,6 +81,8 @@ def test_processing_create(processing_provider: Provider):
 
     assert processing_output["OUTPUT_STATUS"] == 1
     assert processing_output["OUTPUT_VERSION"] == schema_version()
+
+    check_hydro_tables(db_connection.cursor(), db_schema)
 
 
 def test_upgrade_from(
@@ -175,6 +195,9 @@ def test_upgrade_from(
     records = cursor.fetchall()
     result = [r[0] for r in records]
     case.assertCountEqual(TABLES_FOR_CURRENT_VERSION, result)
+
+    # The hydrological tables are created by the migrations
+    check_hydro_tables(cursor, db_schema)
 
     # Create the database structure with override
     # This will delete and recreate the structure for the last version

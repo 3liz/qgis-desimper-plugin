@@ -81,6 +81,30 @@ CREATE INDEX fleches_ecoulement_fk_id_projet_idx ON desimper.fleches_ecoulement 
 CREATE INDEX fleches_ecoulement_geom_idx ON desimper.fleches_ecoulement USING gist (geom);
 
 
+-- hydro_bv_amont_geom_idx
+CREATE INDEX hydro_bv_amont_geom_idx ON desimper.hydro_bv_amont USING gist (geom);
+
+
+-- hydro_d8_raster_st_convexhull_idx
+CREATE INDEX hydro_d8_raster_st_convexhull_idx ON desimper.hydro_d8_raster USING gist (public.st_convexhull(rast));
+
+
+-- hydro_noeuds_ds_idx
+CREATE INDEX hydro_noeuds_ds_idx ON desimper.hydro_noeuds USING btree (ds);
+
+
+-- hydro_noeuds_geom_idx
+CREATE INDEX hydro_noeuds_geom_idx ON desimper.hydro_noeuds USING gist (geom);
+
+
+-- hydro_troncons_geom_idx
+CREATE INDEX hydro_troncons_geom_idx ON desimper.hydro_troncons USING gist (geom);
+
+
+-- hydro_troncons_id_idx
+CREATE INDEX hydro_troncons_id_idx ON desimper.hydro_troncons USING btree (id);
+
+
 -- lignes_ecoulement_fk_id_projet_idx
 CREATE INDEX lignes_ecoulement_fk_id_projet_idx ON desimper.lignes_ecoulement USING btree (fk_id_projet);
 

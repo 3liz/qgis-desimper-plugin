@@ -51,6 +51,26 @@ ALTER TABLE ONLY desimper.fleches_ecoulement
     ADD CONSTRAINT fleches_ecoulement_pkey PRIMARY KEY (id);
 
 
+-- hydro_bv_amont hydro_bv_amont_pkey
+ALTER TABLE ONLY desimper.hydro_bv_amont
+    ADD CONSTRAINT hydro_bv_amont_pkey PRIMARY KEY (id);
+
+
+-- hydro_codes_d8 hydro_codes_d8_pkey
+ALTER TABLE ONLY desimper.hydro_codes_d8
+    ADD CONSTRAINT hydro_codes_d8_pkey PRIMARY KEY (code);
+
+
+-- hydro_d8_raster hydro_d8_raster_pkey
+ALTER TABLE ONLY desimper.hydro_d8_raster
+    ADD CONSTRAINT hydro_d8_raster_pkey PRIMARY KEY (rid);
+
+
+-- hydro_noeuds hydro_noeuds_pkey
+ALTER TABLE ONLY desimper.hydro_noeuds
+    ADD CONSTRAINT hydro_noeuds_pkey PRIMARY KEY (id);
+
+
 -- lignes_ecoulement lignes_ecoulement_pkey
 ALTER TABLE ONLY desimper.lignes_ecoulement
     ADD CONSTRAINT lignes_ecoulement_pkey PRIMARY KEY (id);
